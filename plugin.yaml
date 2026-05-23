@@ -1,0 +1,13 @@
+name: knowledge-router
+version: 1.0.0
+description: "行为合规引擎 — 路径路由、工具选择、技能强制、步骤顺序、失败汇报、操作安全，全部可配置"
+author: "knowledge-router contributors"
+kind: standalone
+provides_hooks:
+  - pre_tool_call
+  - post_tool_call
+  - transform_tool_result
+  - pre_llm_call
+  - transform_llm_output
+  - post_llm_call
+  - on_session_start

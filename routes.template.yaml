@@ -1,0 +1,173 @@
+# ═══════════════════════════════════════════════════════════════════
+# knowledge-router — 行为合规引擎规则模板
+#
+# 使用方法:
+#   1. 复制此文件为 routes.yaml（在同目录下）
+#   2. 按你的项目结构修改 defaults 和规则
+#   3. 重启 Hermes 生效
+#
+# ${PROJECT_ROOT} 会被引擎自动替换为你的项目根目录。
+# 你也可以设环境变量 KNOWLEDGE_ROUTER_PROJECT_ROOT 来指定。
+#
+# 每条规则通用字段:
+#   name: "规则名"         必填，日志和防撞墙用
+#   priority: 100         必填，数字越大越先匹配
+#   action: block         固定值
+#   message: "提示文本"    必填，Agent 被拦后看到的信息
+# ═══════════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────
+# 全局默认策略：白名单模式
+# 不在白名单里的路径全部拦截。
+# ─────────────────────────────────────────────────────────────
+defaults:
+  # 搜索白名单 — search_files/Grep/Glob 允许的目录
+  search_allowed_roots:
+    - "${PROJECT_ROOT}/"
+
+  # 读取白名单 — read_file/Read/ga_file_read 允许的目录
+  # 通常设为整个项目目录（读不会破坏文件）
+  read_allowed_roots:
+    - "${PROJECT_ROOT}/"
+
+  # 写入白名单 — write_file/Edit/ga_file_write 允许的目录
+  # 写入有破坏性，应该严格限制。按你的项目结构列出允许写入的目录。
+  write_allowed_roots: []
+    # 示例:
+    # - "${PROJECT_ROOT}/data/"
+    # - "${PROJECT_ROOT}/wiki/"
+
+# ─────────────────────────────────────────────────────────────
+# 1. 路由规则（routing）
+# 规定: 查什么去哪个目录，写什么存哪个目录。
+# 字段: tools, intent_keywords, path_has, path_not_has, path_not_under
+# ─────────────────────────────────────────────────────────────
+routing: []
+  # 搜索路由示例 — 用户说"查知识"时，引导到 wiki 目录
+  # - name: "知识查wiki"
+  #   priority: 100
+  #   tools: [search_files, Grep, Glob]
+  #   intent_keywords: ["知识", "wiki", "教材", "教程"]
+  #   path_has: "data/"           # 搜了 data/ 应该去 wiki/
+  #   path_not_has: "wiki/"       # 已经在 wiki/ 就不拦
+  #   action: block
+  #   message: "知识内容在 wiki/ 目录。请改为在 wiki/ 下查找。"
+
+  # 写入路由示例 — 用户说"写方案"时，确保写到正确目录
+  # - name: "方案写入正确目录"
+  #   priority: 100
+  #   tools: [write_file, Write, Edit, ga_file_write, ga_file_patch]
+  #   intent_keywords: ["方案", "提案", "计划"]
+  #   path_not_under: "data/方案/"    # 不在正确目录就拦
+  #   action: block
+  #   message: "方案应写入 data/方案/ 目录。请改为写入该目录。"
+
+# ─────────────────────────────────────────────────────────────
+# 2. 工具选择规则（tool_selection）
+# 规定: 什么场景禁止用什么工具。
+# 字段: intent_keywords, forbidden_tools
+# ─────────────────────────────────────────────────────────────
+tool_selection: []
+  # 示例:
+  # - name: "搜索不用代码"
+  #   priority: 100
+  #   intent_keywords: ["查找", "搜索", "找文件"]
+  #   forbidden_tools: [ga_code_run, execute_code]
+  #   action: block
+  #   message: "搜索文件请用 search_files/Grep，不要为此写 Python 脚本。"
+
+# ─────────────────────────────────────────────────────────────
+# 3. 技能使用规则（skill_enforcement）— 软提醒
+# 字段: user_keywords, inject
+# 在用户消息中检测到关键词时，将提醒注入到 Agent 的上下文中。
+# ─────────────────────────────────────────────────────────────
+skill_enforcement: []
+  # 示例:
+  # - name: "写代码前提醒验证"
+  #   priority: 100
+  #   user_keywords: ["实现", "修复", "开发", "写代码"]
+  #   inject: |-
+  #     [规则提醒] 代码写完后必须运行验证确认通过。
+
+# ─────────────────────────────────────────────────────────────
+# 4. 步骤顺序规则（step_sequence）— 硬拦截
+# 规定: 执行某些工具之前，必须先完成什么前置步骤。
+# 字段: before_tools, requires_step, requires_skill, when_intents, lookback
+# ─────────────────────────────────────────────────────────────
+step_sequence: []
+  # 示例 — 技能硬执行:
+  # - name: "设计方案前必须调brainstorming（硬）"
+  #   priority: 100
+  #   before_tools: [write_file, Write, Edit]
+  #   requires_skill: "superpowers:brainstorming"
+  #   when_intents: ["设计", "方案", "架构"]
+  #   action: block
+  #   message: "请先调用 brainstorming 技能后再写代码。"
+
+  # 示例 — 代码操作顺序:
+  # - name: "改代码前先读代码"
+  #   priority: 95
+  #   before_tools: [write_file, Write, Edit]
+  #   when_intents: ["实现", "修复", "开发", "修改"]
+  #   requires_step: "read_code"
+  #   lookback: 5
+  #   action: block
+  #   message: "修改代码前请先读取现有代码了解结构。"
+
+  # 示例 — 搜索无果换策略:
+  # - name: "搜索无果换策略"
+  #   priority: 80
+  #   before_tools: [search_files, Grep, Glob]
+  #   when_same_tool_consecutive: 2
+  #   action: block
+  #   message: "同一搜索已连续执行 2 次。请换个策略。"
+
+# ─────────────────────────────────────────────────────────────
+# 5. 失败协议（failure_protocol）
+# 规定: 工具连续失败达阈值后，强制 Agent 汇报。
+# 字段: same_tool_max, distinct_tools_max
+# ─────────────────────────────────────────────────────────────
+failure_protocol:
+  - name: "连续失败必须汇报"
+    priority: 110
+    same_tool_max: 2
+    distinct_tools_max: 3
+    action: block
+    message: "已有 {count} 个不同工具失败（{failed_list}）。请先向用户汇报再继续。"
+
+# ─────────────────────────────────────────────────────────────
+# 6. 工具优先级（tool_priority）— 软提醒
+# 字段: capability, tools（按优→劣排列）, inject
+# ─────────────────────────────────────────────────────────────
+tool_priority: []
+  # 示例:
+  # - capability: "web_search"
+  #   tools: [web_search, web_extract, browser_navigate]
+  #   inject: "[优先级] 搜索: web_search > web_extract > browser_navigate"
+
+# ─────────────────────────────────────────────────────────────
+# 7. 路径安全规则（safety）
+# 不允许操作的绝对边界。
+# ─────────────────────────────────────────────────────────────
+safety:
+  - name: "禁止操作项目外文件"
+    priority: 200
+    tools: [write_file, Write, ga_file_write, ga_file_patch, Edit,
+            read_file, Read, ga_file_read,
+            Bash, terminal, ga_code_run, execute_code]
+    path_outside: "${PROJECT_ROOT}/"
+    action: block
+    message: "文件路径超出项目目录范围，不允许操作。"
+
+# ─────────────────────────────────────────────────────────────
+# 8. 汇报配置（reporting）
+# ─────────────────────────────────────────────────────────────
+reporting:
+  enabled: false                         # 是否在聊天窗口显示汇报
+  show:
+    tools_used: true
+    tools_failed: true
+    files_written: true
+    files_read: true
+    scripts_used: true
+    skills_used: true

@@ -1,8 +1,35 @@
+# Python
 __pycache__/
-*.pyc
-*.pyo
-routes.yaml
+*.py[cod]
+*.so
 *.egg-info/
 dist/
 build/
+eggs/
+*.egg
+.eggs/
+
+# 用户自己的规则（不提交）
+routes.yaml
+
+# 虚拟环境
+venv/
+.venv/
+env/
 .env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 测试
+.pytest_cache/
+htmlcov/
+.coverage
